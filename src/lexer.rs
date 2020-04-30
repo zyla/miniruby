@@ -64,6 +64,36 @@ impl<'a> Lexer<'a> {
                     }
                     self.push_token(Token::IntegerLiteral(value));
                 }
+                '"' => {
+                    let mut content: Vec<u8> = vec![];
+                    loop {
+                        if self.eof() {
+                            return Err(Error("Unterminated string literal".to_string()));
+                        }
+                        match self.peek() {
+                            '"' => {
+                                self.next();
+                                break;
+                            }
+                            '\\' => {
+                                self.next();
+                                if self.eof() {
+                                    return Err(Error("Unterminated string literal".to_string()));
+                                }
+                                content.push(match self.peek() {
+                                    'n' => b'\n',
+                                    't' => b'\t',
+                                    c => c as u8,
+                                });
+                            }
+                            c => {
+                                content.push(c as u8);
+                            }
+                        }
+                        self.next();
+                    }
+                    self.push_token(Token::StringLiteral(String::from_utf8(content).unwrap()));
+                }
                 '(' => self.push_token(Token::LParen),
                 ')' => self.push_token(Token::RParen),
                 '=' => self.push_token(Token::Equal),
@@ -145,6 +175,12 @@ mod tests {
     }
 
     #[test]
+    fn test_empty() {
+        test_lex("", Ok(vec![]));
+        test_lex("  \n  ", Ok(vec![]));
+    }
+
+    #[test]
     fn test_identifier() {
         test_lex(
             "asdzASDZ_09",
@@ -156,6 +192,31 @@ mod tests {
     fn test_integer_literal() {
         test_lex("123", Ok(vec![Token::IntegerLiteral(123)]));
         test_lex("35_000_000", Ok(vec![Token::IntegerLiteral(35_000_000)]));
+    }
+
+    #[test]
+    fn test_string_literal() {
+        test_lex(r#" "" "#, Ok(vec![Token::StringLiteral("".to_string())]));
+        test_lex(
+            r#" "Hello" "#,
+            Ok(vec![Token::StringLiteral("Hello".to_string())]),
+        );
+        test_lex(
+            r#" "a\n\"\\" "#,
+            Ok(vec![Token::StringLiteral("a\n\"\\".to_string())]),
+        );
+    }
+
+    #[test]
+    fn test_string_literal_errors() {
+        test_lex(
+            r#"""#,
+            Err(Error("Unterminated string literal".to_string())),
+        );
+        test_lex(
+            r#""\"#,
+            Err(Error("Unterminated string literal".to_string())),
+        );
     }
 
     #[test]
