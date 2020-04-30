@@ -53,9 +53,7 @@ impl<'a> Lexer<'a> {
                     while !self.eof() && is_ident_char(self.peek()) {
                         self.next();
                     }
-                    self.push_token(Token::Identifier(String::from_utf8(
-                        self.input[self.token_start..self.pos].to_vec(),
-                    ).unwrap()))
+                    self.push_token(ident_to_token(&self.input[self.token_start..self.pos]))
                 }
                 _ => {}
             }
@@ -79,6 +77,19 @@ impl<'a> Lexer<'a> {
             end: self.pos,
             newline_before: self.has_newline
         });
+    }
+}
+
+fn ident_to_token(ident: &[u8]) -> Token {
+    match ident {
+        b"nil" => Token::Nil,
+        b"if" => Token::If,
+        b"then" => Token::Then,
+        b"else" => Token::Else,
+        b"do" => Token::Do,
+        b"end" => Token::End,
+        b"while" => Token::While,
+        _ => Token::Identifier(String::from_utf8(ident.to_vec()).unwrap())
     }
 }
 
@@ -114,5 +125,6 @@ mod tests {
     #[test]
     fn test_keywords() {
         test_lex("then", Ok(vec![Token::Then]));
+        test_lex("do", Ok(vec![Token::Do]));
     }
 }
