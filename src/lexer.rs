@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::token::{Token, TokenInfo};
 
 pub type Result<A> = ::std::result::Result<A, Error>;
