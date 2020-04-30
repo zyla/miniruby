@@ -28,7 +28,8 @@ Statement and expression syntax is similar to Ruby, but there are no infix opera
 
 ## What is implemented
 
-So far only lexer.
+- Lexer
+- A tiny bit of parser
 
 ## Syntax
 
