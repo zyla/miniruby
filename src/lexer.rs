@@ -121,7 +121,7 @@ impl<'a> Lexer<'a> {
     }
     fn push_token(&mut self, token: Token) {
         self.tokens.push(TokenInfo {
-            token: token,
+            token,
             start: self.token_start,
             end: self.pos,
             newline_before: self.has_newline,
@@ -147,19 +147,19 @@ fn digit_value(c: char) -> usize {
 }
 
 fn is_ident_start(c: char) -> bool {
-    return ('a'..='z').contains(&c) || ('A'..='Z').contains(&c) || c == '_';
+    ('a'..='z').contains(&c) || ('A'..='Z').contains(&c) || c == '_'
 }
 
 fn is_ident_char(c: char) -> bool {
-    return is_ident_start(c) || is_digit(c);
+    is_ident_start(c) || is_digit(c)
 }
 
 fn is_digit(c: char) -> bool {
-    return ('0'..='9').contains(&c);
+    ('0'..='9').contains(&c)
 }
 
 fn is_integer_literal_char(c: char) -> bool {
-    return is_digit(c) || c == '_';
+    is_digit(c) || c == '_'
 }
 
 #[cfg(test)]
