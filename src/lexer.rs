@@ -41,6 +41,7 @@ impl<'a> Lexer<'a> {
                 if !c.is_whitespace() {
                     break;
                 }
+                self.next();
             }
 
             let c = self.peek();
@@ -55,7 +56,17 @@ impl<'a> Lexer<'a> {
                     }
                     self.push_token(ident_to_token(&self.input[self.token_start..self.pos]))
                 }
-                _ => {}
+                '(' => self.push_token(Token::LParen),
+                ')' => self.push_token(Token::RParen),
+                '=' => self.push_token(Token::Equal),
+                '|' => self.push_token(Token::Pipe),
+                '@' => self.push_token(Token::At),
+                ':' => self.push_token(Token::Colon),
+                ',' => self.push_token(Token::Comma),
+                ';' => self.push_token(Token::Semicolon),
+                _ => {
+                    return Err(Error(format!("Unknown character: {}", c)));
+                }
             }
         }
         Ok(())
@@ -75,7 +86,7 @@ impl<'a> Lexer<'a> {
             token: token,
             start: self.token_start,
             end: self.pos,
-            newline_before: self.has_newline
+            newline_before: self.has_newline,
         });
     }
 }
@@ -89,7 +100,7 @@ fn ident_to_token(ident: &[u8]) -> Token {
         b"do" => Token::Do,
         b"end" => Token::End,
         b"while" => Token::While,
-        _ => Token::Identifier(String::from_utf8(ident.to_vec()).unwrap())
+        _ => Token::Identifier(String::from_utf8(ident.to_vec()).unwrap()),
     }
 }
 
@@ -119,12 +130,32 @@ mod tests {
 
     #[test]
     fn test_identifier() {
-        test_lex("asdzASDZ_09", Ok(vec![Token::Identifier("asdzASDZ_09".to_string())]));
+        test_lex(
+            "asdzASDZ_09",
+            Ok(vec![Token::Identifier("asdzASDZ_09".to_string())]),
+        );
     }
 
     #[test]
     fn test_keywords() {
         test_lex("then", Ok(vec![Token::Then]));
         test_lex("do", Ok(vec![Token::Do]));
+    }
+
+    #[test]
+    fn test_operators() {
+        test_lex(
+            "( ) = | @ : , ;",
+            Ok(vec![
+                Token::LParen,
+                Token::RParen,
+                Token::Equal,
+                Token::Pipe,
+                Token::At,
+                Token::Colon,
+                Token::Comma,
+                Token::Semicolon,
+            ]),
+        );
     }
 }
