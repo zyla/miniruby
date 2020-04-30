@@ -56,6 +56,16 @@ impl<'a> Lexer<'a> {
                     }
                     self.push_token(ident_to_token(&self.input[self.token_start..self.pos]))
                 }
+                c if is_digit(c) => {
+                    let mut value = digit_value(c);
+                    while !self.eof() && is_integer_literal_char(self.peek()) {
+                        if is_digit(self.peek()) {
+                            value = value * 10 + digit_value(self.peek());
+                        }
+                        self.next();
+                    }
+                    self.push_token(Token::IntegerLiteral(value));
+                }
                 '(' => self.push_token(Token::LParen),
                 ')' => self.push_token(Token::RParen),
                 '=' => self.push_token(Token::Equal),
@@ -104,6 +114,10 @@ fn ident_to_token(ident: &[u8]) -> Token {
     }
 }
 
+fn digit_value(c: char) -> usize {
+    c as usize - '0' as usize
+}
+
 fn is_ident_start(c: char) -> bool {
     return ('a'..='z').contains(&c) || ('A'..='Z').contains(&c) || c == '_';
 }
@@ -114,6 +128,10 @@ fn is_ident_char(c: char) -> bool {
 
 fn is_digit(c: char) -> bool {
     return ('0'..='9').contains(&c);
+}
+
+fn is_integer_literal_char(c: char) -> bool {
+    return is_digit(c) || c == '_';
 }
 
 #[cfg(test)]
@@ -134,6 +152,12 @@ mod tests {
             "asdzASDZ_09",
             Ok(vec![Token::Identifier("asdzASDZ_09".to_string())]),
         );
+    }
+
+    #[test]
+    fn test_integer_literal() {
+        test_lex("123", Ok(vec![Token::IntegerLiteral(123)]));
+        test_lex("35_000_000", Ok(vec![Token::IntegerLiteral(35_000_000)]));
     }
 
     #[test]
