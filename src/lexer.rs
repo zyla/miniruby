@@ -3,7 +3,7 @@ use crate::token::{Token, TokenInfo};
 pub type Result<A> = ::std::result::Result<A, Error>;
 
 #[derive(PartialEq, Eq, Debug)]
-pub struct Error(String);
+pub struct Error(pub String);
 
 pub fn lex(input: &str) -> Result<Vec<TokenInfo>> {
     let mut l = Lexer {
@@ -132,6 +132,7 @@ impl<'a> Lexer<'a> {
 fn ident_to_token(ident: &[u8]) -> Token {
     match ident {
         b"nil" => Token::Nil,
+        b"self" => Token::Self_,
         b"if" => Token::If,
         b"then" => Token::Then,
         b"else" => Token::Else,
@@ -223,6 +224,7 @@ mod tests {
     fn test_keywords() {
         test_lex("then", Ok(vec![Token::Then]));
         test_lex("do", Ok(vec![Token::Do]));
+        test_lex("self", Ok(vec![Token::Self_]));
     }
 
     #[test]

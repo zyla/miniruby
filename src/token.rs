@@ -1,4 +1,4 @@
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Token {
     IntegerLiteral(usize),
     StringLiteral(String),
@@ -18,12 +18,15 @@ pub enum Token {
 
     // Keywords
     Nil,
+    Self_,
     If,
     Then,
     Else,
     Do,
     End,
     While,
+
+    EOF,
 }
 
 #[derive(PartialEq, Eq, Debug)]
