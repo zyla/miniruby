@@ -5,7 +5,6 @@ pub enum Token {
     Identifier(String),
 
     // Operators
-
     LParen,
     RParen,
     Equal,
@@ -29,7 +28,8 @@ pub enum Token {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct TokenInfo {
-   pub token: Token,
-   pub pos: usize,
-   pub newline_before: bool,
+    pub token: Token,
+    pub start: usize,
+    pub end: usize,
+    pub newline_before: bool,
 }
