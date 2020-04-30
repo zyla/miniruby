@@ -34,6 +34,7 @@ So far only lexer.
 
 ```
 expr = "nil"
+     | "self"
      | integer_literal
      | string_literal
      | identifier                        (* variable reference *)
