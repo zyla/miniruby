@@ -80,9 +80,15 @@ impl<'a> Parser<'a> {
         let args = match self.peek() {
             Token::LParen => {
                 self.next();
-                self.expr_list()?
+                let exprs = self.expr_list()?;
+                match self.peek() {
+                    Token::RParen => exprs,
+                    _ => {
+                        return self.parse_error("method call arguments", ")");
+                    }
+                }
             }
-            _ => vec![].into(),
+            _ => self.expr_list()?,
         };
         Ok((args, None))
     }
@@ -267,6 +273,66 @@ mod tests {
                 ]
                 .into_boxed_slice(),
                 block: None,
+            }),
+        );
+        test_parse_expr(
+            "foo.bar(1,",
+            Err(ParseError::ParseError {
+                context: "expression",
+                expected: "expression",
+                got: Token::EOF,
+            }),
+        );
+        test_parse_expr(
+            "foo.bar(1,2",
+            Err(ParseError::ParseError {
+                context: "method call arguments",
+                expected: ")",
+                got: Token::EOF,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_method_call_on_receiver_without_parens() {
+        test_parse_expr(
+            "foo.bar 1",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1)].into_boxed_slice(),
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "foo.bar 1, 2 ",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)].into_boxed_slice(),
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "foo.bar 1, 2, 3 ",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![
+                    Expr::IntegerLiteral(1),
+                    Expr::IntegerLiteral(2),
+                    Expr::IntegerLiteral(3),
+                ]
+                .into_boxed_slice(),
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "foo.bar 1,",
+            Err(ParseError::ParseError {
+                context: "expression",
+                expected: "expression",
+                got: Token::EOF,
             }),
         );
     }
