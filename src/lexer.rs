@@ -153,7 +153,7 @@ fn is_ident_start(c: char) -> bool {
 }
 
 fn is_ident_char(c: char) -> bool {
-    is_ident_start(c) || is_digit(c)
+    is_ident_start(c) || is_digit(c) || c == '?' || c == '!'
 }
 
 fn is_digit(c: char) -> bool {
@@ -188,6 +188,11 @@ mod tests {
             "asdzASDZ_09",
             Ok(vec![Token::Identifier("asdzASDZ_09".to_string())]),
         );
+        test_lex(
+            "exists?",
+            Ok(vec![Token::Identifier("exists?".to_string())]),
+        );
+        test_lex("send!", Ok(vec![Token::Identifier("send!".to_string())]));
     }
 
     #[test]
