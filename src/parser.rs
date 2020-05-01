@@ -53,28 +53,51 @@ impl<'a> Parser<'a> {
             Token::Dot => {
                 self.next();
                 let method = self.identifier("method call")?;
+                let (args, block) = self.method_call_arguments()?;
                 Ok(Expr::MethodCall {
                     receiver: Some(Box::new(expr)),
                     method,
-                    args: vec![].into(),
-                    block: None,
+                    args,
+                    block,
                 })
             }
-            _ => {
-        Ok(expr)
-            }
+            _ => Ok(expr),
         }
     }
 
     fn identifier(&mut self, context: &'static str) -> Result<Identifier> {
-                match self.peek() {
-                    Token::Identifier(s) => {
-                        let s = s.clone();
-                        self.next();
-                        Ok(s)
-                    }
-                    _ => self.parse_error(context, "identifier"),
-                }
+        match self.peek() {
+            Token::Identifier(s) => {
+                let s = s.clone();
+                self.next();
+                Ok(s)
+            }
+            _ => self.parse_error(context, "identifier"),
+        }
+    }
+
+    fn method_call_arguments(&mut self) -> Result<(Box<[Expr]>, Option<Block>)> {
+        let args = match self.peek() {
+            Token::LParen => {
+                self.next();
+                self.expr_list()?
+            }
+            _ => vec![].into(),
+        };
+        Ok((args, None))
+    }
+
+    fn expr_list(&mut self) -> Result<Box<[Expr]>> {
+        let mut result = vec![];
+        match try_(self.expr())? {
+            Some(expr) => result.push(expr),
+            None => return Ok(vec![].into()),
+        }
+        while *self.peek() == Token::Comma {
+            self.next();
+            result.push(self.expr()?);
+        }
+        Ok(result.into())
     }
 
     fn primary_expr(&mut self) -> Result<Expr> {
@@ -148,6 +171,13 @@ impl<'a> Parser<'a> {
     }
 }
 
+fn try_<A>(r: Result<A>) -> Result<Option<A>> {
+    match r {
+        Err(NoMatch) => Ok(None),
+        _ => r.map(Some),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,6 +230,42 @@ mod tests {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
                 args: vec![].into_boxed_slice(),
+                block: None,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_method_call_on_receiver_with_parens() {
+        test_parse_expr(
+            "foo.bar(1)",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1)].into_boxed_slice(),
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "foo.bar(1, 2)",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)].into_boxed_slice(),
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "foo.bar(1, 2, 3)",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![
+                    Expr::IntegerLiteral(1),
+                    Expr::IntegerLiteral(2),
+                    Expr::IntegerLiteral(3),
+                ]
+                .into_boxed_slice(),
                 block: None,
             }),
         );
