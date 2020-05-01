@@ -152,6 +152,16 @@ impl<'a> Parser<'a> {
                 self.next();
                 Ok(Expr::Var(ident))
             }
+            Token::LParen => {
+                self.next();
+                let expr = self.expr()?;
+                match self.peek() {
+                    Token::RParen => Ok(expr),
+                    _ => {
+                        return self.parse_error("parenthesized expression", ")");
+                    }
+                }
+            }
             _ => Err(NoMatch),
         }
     }
@@ -226,6 +236,12 @@ mod tests {
                 got: Token::IntegerLiteral(1),
             }),
         );
+    }
+
+    #[test]
+    fn test_parens() {
+        test_parse_expr("(foo)", Ok(Expr::Var("foo".to_string())));
+        test_parse_expr("(((foo)))", Ok(Expr::Var("foo".to_string())));
     }
 
     #[test]
