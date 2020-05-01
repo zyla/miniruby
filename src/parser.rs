@@ -2,8 +2,6 @@ use crate::ast::*;
 use crate::lexer;
 use crate::token::{Token, TokenInfo};
 
-use PartialResult::*;
-
 #[derive(PartialEq, Eq, Debug)]
 pub enum ParseError {
     ParseError {
@@ -12,7 +10,10 @@ pub enum ParseError {
         got: Token,
     },
     LexicalError(String),
+    NoMatch,
 }
+
+use ParseError::NoMatch;
 
 impl From<lexer::Error> for ParseError {
     fn from(e: lexer::Error) -> Self {
@@ -20,27 +21,22 @@ impl From<lexer::Error> for ParseError {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
-pub enum PartialResult<T> {
-    Ok(T),
-    Err(ParseError),
-    NoMatch,
-}
+type Result<T> = ::std::result::Result<T, ParseError>;
 
-pub fn parse_expr(input: &str) -> Result<Expr, ParseError> {
+pub fn parse_expr(input: &str) -> Result<Expr> {
     let tokens = lexer::lex(input)?;
     let mut parser = Parser {
         input: &tokens,
         pos: 0,
     };
     match parser.expr() {
-        Ok(x) => Result::Ok(x),
-        NoMatch => Result::Err(ParseError::ParseError {
+        Ok(x) => Ok(x),
+        Err(NoMatch) => Err(ParseError::ParseError {
             context: "expression",
             expected: "expression",
             got: parser.peek().clone(),
         }),
-        Err(e) => Result::Err(e),
+        Err(e) => Err(e),
     }
 }
 
@@ -50,11 +46,38 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn expr(&mut self) -> PartialResult<Expr> {
-        self.primary_expr()
+    fn expr(&mut self) -> Result<Expr> {
+        let expr = self.primary_expr()?;
+
+        match self.peek() {
+            Token::Dot => {
+                self.next();
+                let method = self.identifier("method call")?;
+                Ok(Expr::MethodCall {
+                    receiver: Some(Box::new(expr)),
+                    method,
+                    args: vec![].into(),
+                    block: None,
+                })
+            }
+            _ => {
+        Ok(expr)
+            }
+        }
     }
 
-    fn primary_expr(&mut self) -> PartialResult<Expr> {
+    fn identifier(&mut self, context: &'static str) -> Result<Identifier> {
+                match self.peek() {
+                    Token::Identifier(s) => {
+                        let s = s.clone();
+                        self.next();
+                        Ok(s)
+                    }
+                    _ => self.parse_error(context, "identifier"),
+                }
+    }
+
+    fn primary_expr(&mut self) -> Result<Expr> {
         match self.peek() {
             Token::Nil => {
                 self.next();
@@ -92,21 +115,15 @@ impl<'a> Parser<'a> {
             }
             Token::At => {
                 self.next();
-                match self.peek() {
-                    Token::Identifier(s) => {
-                        let s = s.clone();
-                        self.next();
-                        Ok(Expr::InstanceVariable(s))
-                    }
-                    _ => self.parse_error("instance variable", "identifier"),
-                }
+                let ident = self.identifier("instance variable")?;
+                Ok(Expr::InstanceVariable(ident))
             }
             Token::Identifier(ident) => {
                 let ident = ident.clone();
                 self.next();
                 Ok(Expr::Var(ident))
             }
-            _ => NoMatch,
+            _ => Err(NoMatch),
         }
     }
 
@@ -122,7 +139,7 @@ impl<'a> Parser<'a> {
         self.pos += 1;
     }
 
-    fn parse_error<T>(&self, context: &'static str, expected: &'static str) -> PartialResult<T> {
+    fn parse_error<T>(&self, context: &'static str, expected: &'static str) -> Result<T> {
         Err(ParseError::ParseError {
             context,
             expected,
@@ -134,9 +151,8 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::result::Result::{Err, Ok};
 
-    fn test_parse_expr(input: &str, expected_result: Result<Expr, ParseError>) {
+    fn test_parse_expr(input: &str, expected_result: Result<Expr>) {
         let result = parse_expr(input);
         if result != expected_result {
             panic!("Test failed.\n            input: {:?}\n  expected result: {:?}\n    actual result: {:?}\n",
@@ -172,6 +188,19 @@ mod tests {
                 context: "instance variable",
                 expected: "identifier",
                 got: Token::IntegerLiteral(1),
+            }),
+        );
+    }
+
+    #[test]
+    fn test_method_call_on_receiver() {
+        test_parse_expr(
+            "foo.bar",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![].into_boxed_slice(),
+                block: None,
             }),
         );
     }

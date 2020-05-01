@@ -102,6 +102,7 @@ impl<'a> Lexer<'a> {
                 ':' => self.push_token(Token::Colon),
                 ',' => self.push_token(Token::Comma),
                 ';' => self.push_token(Token::Semicolon),
+                '.' => self.push_token(Token::Dot),
                 _ => {
                     return Err(Error(format!("Unknown character: {}", c)));
                 }
@@ -230,7 +231,7 @@ mod tests {
     #[test]
     fn test_operators() {
         test_lex(
-            "( ) = | @ : , ;",
+            "( ) = | @ : , ; .",
             Ok(vec![
                 Token::LParen,
                 Token::RParen,
@@ -240,6 +241,7 @@ mod tests {
                 Token::Colon,
                 Token::Comma,
                 Token::Semicolon,
+                Token::Dot,
             ]),
         );
     }

@@ -11,6 +11,7 @@ pub enum Token {
     Pipe,
     Comma,
     Semicolon,
+    Dot,
 
     // Not technically operators, but parsed the same way
     At,
