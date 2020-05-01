@@ -93,7 +93,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn method_call_arguments(&mut self) -> Result<(Box<[Expr]>, Option<Block>)> {
+    fn method_call_arguments(&mut self) -> Result<(Vec<Expr>, Option<Block>)> {
         let args = match self.peek() {
             Token::LParen => {
                 self.next();
@@ -110,17 +110,17 @@ impl<'a> Parser<'a> {
         Ok((args, None))
     }
 
-    fn expr_list(&mut self) -> Result<Box<[Expr]>> {
+    fn expr_list(&mut self) -> Result<Vec<Expr>> {
         let mut result = vec![];
         match try_(self.expr())? {
             Some(expr) => result.push(expr),
-            None => return Ok(vec![].into()),
+            None => return Ok(vec![]),
         }
         while *self.peek() == Token::Comma {
             self.next();
             result.push(self.expr()?);
         }
-        Ok(result.into())
+        Ok(result)
     }
 
     fn primary_expr(&mut self) -> Result<Expr> {
@@ -198,7 +198,7 @@ impl<'a> Parser<'a> {
                 .pop()
                 .expect("we just checked that the vector has len 1"))
         } else {
-            Ok(Statement::Sequence(result.into()))
+            Ok(Statement::Sequence(result))
         }
     }
 
@@ -299,7 +299,7 @@ mod tests {
             Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
-                args: vec![].into_boxed_slice(),
+                args: vec![],
                 block: None,
             }),
         );
@@ -312,7 +312,7 @@ mod tests {
             Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
-                args: vec![Expr::IntegerLiteral(1)].into_boxed_slice(),
+                args: vec![Expr::IntegerLiteral(1)],
                 block: None,
             }),
         );
@@ -321,7 +321,7 @@ mod tests {
             Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
-                args: vec![].into_boxed_slice(),
+                args: vec![],
                 block: None,
             }),
         );
@@ -330,7 +330,7 @@ mod tests {
             Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
-                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)].into_boxed_slice(),
+                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
                 block: None,
             }),
         );
@@ -343,8 +343,7 @@ mod tests {
                     Expr::IntegerLiteral(1),
                     Expr::IntegerLiteral(2),
                     Expr::IntegerLiteral(3),
-                ]
-                .into_boxed_slice(),
+                ],
                 block: None,
             }),
         );
@@ -373,7 +372,7 @@ mod tests {
             Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
-                args: vec![Expr::IntegerLiteral(1)].into_boxed_slice(),
+                args: vec![Expr::IntegerLiteral(1)],
                 block: None,
             }),
         );
@@ -382,7 +381,7 @@ mod tests {
             Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
-                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)].into_boxed_slice(),
+                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
                 block: None,
             }),
         );
@@ -395,8 +394,7 @@ mod tests {
                     Expr::IntegerLiteral(1),
                     Expr::IntegerLiteral(2),
                     Expr::IntegerLiteral(3),
-                ]
-                .into_boxed_slice(),
+                ],
                 block: None,
             }),
         );
@@ -428,7 +426,7 @@ mod tests {
             Ok(Statement::Sequence(vec![
                 Statement::Expression(Expr::Var("foo".to_string())),
                 Statement::Expression(Expr::Var("bar".to_string())),
-            ].into())),
+            ])),
         );
     }
 }

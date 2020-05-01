@@ -17,7 +17,7 @@ pub enum Expr {
     MethodCall {
         receiver: Option<Box<Expr>>,
         method: Identifier,
-        args: Box<[Expr]>,
+        args: Vec<Expr>,
         block: Option<Block>,
     },
     Block(Box<Statement>),
@@ -29,5 +29,5 @@ pub enum Block {}
 #[derive(PartialEq, Eq, Debug)]
 pub enum Statement {
     Expression(Expr),
-    Sequence(Box<[Statement]>),
+    Sequence(Vec<Statement>),
 }
