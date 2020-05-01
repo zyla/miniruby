@@ -40,6 +40,23 @@ pub fn parse_expr(input: &str) -> Result<Expr> {
     }
 }
 
+pub fn parse_stmt(input: &str) -> Result<Statement> {
+    let tokens = lexer::lex(input)?;
+    let mut parser = Parser {
+        input: &tokens,
+        pos: 0,
+    };
+    match parser.stmt() {
+        Ok(x) => Ok(x),
+        Err(NoMatch) => Err(ParseError::ParseError {
+            context: "statement",
+            expected: "statement",
+            got: parser.peek().clone(),
+        }),
+        Err(e) => Err(e),
+    }
+}
+
 struct Parser<'a> {
     input: &'a [TokenInfo],
     pos: usize,
@@ -166,6 +183,29 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn stmt(&mut self) -> Result<Statement> {
+        let mut result = vec![self.atomic_stmt()?];
+
+        loop {
+            match try_(self.atomic_stmt())? {
+                Some(stmt) => result.push(stmt),
+                None => break,
+            }
+        }
+
+        if result.len() == 1 {
+            Ok(result
+                .pop()
+                .expect("we just checked that the vector has len 1"))
+        } else {
+            Ok(Statement::Sequence(result.into()))
+        }
+    }
+
+    fn atomic_stmt(&mut self) -> Result<Statement> {
+        Ok(Statement::Expression(self.expr()?))
+    }
+
     fn peek(&self) -> &Token {
         if self.pos >= self.input.len() {
             &Token::EOF
@@ -200,6 +240,14 @@ mod tests {
 
     fn test_parse_expr(input: &str, expected_result: Result<Expr>) {
         let result = parse_expr(input);
+        if result != expected_result {
+            panic!("Test failed.\n            input: {:?}\n  expected result: {:?}\n    actual result: {:?}\n",
+                   input, expected_result, result);
+        }
+    }
+
+    fn test_parse_stmt(input: &str, expected_result: Result<Statement>) {
+        let result = parse_stmt(input);
         if result != expected_result {
             panic!("Test failed.\n            input: {:?}\n  expected result: {:?}\n    actual result: {:?}\n",
                    input, expected_result, result);
@@ -265,6 +313,15 @@ mod tests {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
                 args: vec![Expr::IntegerLiteral(1)].into_boxed_slice(),
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "foo.bar()",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![].into_boxed_slice(),
                 block: None,
             }),
         );
@@ -350,6 +407,28 @@ mod tests {
                 expected: "expression",
                 got: Token::EOF,
             }),
+        );
+    }
+
+    #[test]
+    fn test_single_stmt() {
+        test_parse_stmt(
+            "foo",
+            Ok(Statement::Expression(Expr::Var("foo".to_string()))),
+        );
+    }
+
+    #[test]
+    fn test_sequence() {
+        test_parse_stmt(
+            "
+            foo
+            bar
+            ",
+            Ok(Statement::Sequence(vec![
+                Statement::Expression(Expr::Var("foo".to_string())),
+                Statement::Expression(Expr::Var("bar".to_string())),
+            ].into())),
         );
     }
 }

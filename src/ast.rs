@@ -20,11 +20,14 @@ pub enum Expr {
         args: Box<[Expr]>,
         block: Option<Block>,
     },
-    Block(Statement),
+    Block(Box<Statement>),
 }
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Block {}
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum Statement {}
+pub enum Statement {
+    Expression(Expr),
+    Sequence(Box<[Statement]>),
+}
