@@ -1,5 +1,7 @@
 # MiniRuby
 
+[![build](https://github.com/zyla/miniruby/workflows/build/badge.svg)](https://github.com/zyla/miniruby/actions?query=workflow:build)
+
 A minimal Ruby-like programming language.
 
 It has less syntax, but still tries to retain the core Ruby features (namely: classes and methods). Most notably, it has no special syntax for defining classes and methods - everything is done via method calls.
@@ -33,7 +35,7 @@ Statement and expression syntax is similar to Ruby, but there are no infix opera
 
 ## Syntax
 
-```
+```ebnf
 expr = "nil"
      | "self"
      | integer_literal
