@@ -36,8 +36,17 @@ impl<'a> Lexer<'a> {
                 }
                 let c = self.peek();
                 self.has_newline = self.has_newline || c == '\n';
-                if !c.is_whitespace() {
-                    break;
+                match c {
+                    // Eat a comment
+                    '#' => {
+                        while !self.eof() && self.peek() != '\n' {
+                            self.next();
+                        }
+                    }
+                    c if !c.is_whitespace() => {
+                        break;
+                    }
+                    _ => {}
                 }
                 self.next();
             }
@@ -247,6 +256,26 @@ mod tests {
                 Token::Comma,
                 Token::Semicolon,
                 Token::Dot,
+            ]),
+        );
+    }
+
+    #[test]
+    fn test_comment() {
+        test_lex(
+            "
+            if # This is a comment
+            1
+            ",
+            Ok(vec![
+                Token::If,
+                Token::IntegerLiteral(1),
+            ]),
+        );
+        test_lex(
+            "if#comment",
+            Ok(vec![
+                Token::If,
             ]),
         );
     }
