@@ -174,9 +174,7 @@ impl<'a> Parser<'a> {
                 let expr = self.expr()?;
                 match self.peek() {
                     Token::RParen => Ok(expr),
-                    _ => {
-                        return self.parse_error("parenthesized expression", ")");
-                    }
+                    _ => self.parse_error("parenthesized expression", ")"),
                 }
             }
             _ => Err(NoMatch),
@@ -186,11 +184,8 @@ impl<'a> Parser<'a> {
     fn stmt(&mut self) -> Result<Statement> {
         let mut result = vec![self.atomic_stmt()?];
 
-        loop {
-            match try_(self.atomic_stmt())? {
-                Some(stmt) => result.push(stmt),
-                None => break,
-            }
+        while let Some(stmt) = try_(self.atomic_stmt())? {
+            result.push(stmt);
         }
 
         if result.len() == 1 {
