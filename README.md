@@ -43,8 +43,8 @@ expr = "nil"
      | method_call                       (* method call on self *)
      | ":" identifier                    (* symbol *)
      | "@" identifier                    (* instance variable *)
-     | "if", expr,
-          [ "else", expr ], "end"        (* conditional *)
+     | "if", expr, "then", stmt,
+          [ "else", stmt ], "end"        (* conditional *)
      | block
      | "(", expr, ")"
      ;
