@@ -26,7 +26,14 @@ pub fn parse_expr(input: &str) -> Result<Expr> {
 }
 
 pub fn parse_stmt(input: &str) -> Result<Statement> {
-    Parser::from_tokens(&lexer::lex(input)?).stmt()
+    let tokens = lexer::lex(input)?;
+    let mut parser = Parser::from_tokens(&tokens);
+    let expr = parser.stmt()?;
+    if !parser.eof() {
+        parser.parse_error("statement", "EOF")
+    } else {
+        Ok(expr)
+    }
 }
 
 struct Parser<'a> {
@@ -78,7 +85,10 @@ impl<'a> Parser<'a> {
                 self.next();
                 let exprs = self.expr_list()?;
                 match self.peek() {
-                    Token::RParen => exprs,
+                    Token::RParen => {
+                        self.next();
+                        exprs
+                    }
                     _ => {
                         return self.parse_error("method call arguments", ")");
                     }
@@ -183,8 +193,12 @@ impl<'a> Parser<'a> {
         Ok(Statement::Expression(self.expr()?))
     }
 
+    fn eof(&self) -> bool {
+        self.pos >= self.input.len()
+    }
+
     fn peek(&self) -> &Token {
-        if self.pos >= self.input.len() {
+        if self.eof() {
             &Token::EOF
         } else {
             &self.input[self.pos].token
@@ -417,6 +431,26 @@ mod tests {
             Ok(Statement::Sequence(vec![
                 Statement::Expression(Expr::Var("foo".to_string())),
                 Statement::Expression(Expr::Var("bar".to_string())),
+            ])),
+        );
+        test_parse_stmt(
+            "
+            foo.bar()
+            foo.baz()
+            ",
+            Ok(Statement::Sequence(vec![
+                Statement::Expression(Expr::MethodCall {
+                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                    method: "bar".to_string(),
+                    args: vec![],
+                    block: None,
+                }),
+                Statement::Expression(Expr::MethodCall {
+                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                    method: "baz".to_string(),
+                    args: vec![],
+                    block: None,
+                }),
             ])),
         );
     }
