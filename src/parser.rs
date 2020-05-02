@@ -22,17 +22,24 @@ impl From<lexer::Error> for ParseError {
 type Result<T> = ::std::result::Result<T, ParseError>;
 
 pub fn parse_expr(input: &str) -> Result<Expr> {
-    Parser::from_tokens(&lexer::lex(input)?).expr()
+    let tokens = lexer::lex(input)?;
+    let mut parser = Parser::from_tokens(&tokens);
+    let result = parser.expr()?;
+    if !parser.eof() {
+        parser.parse_error("expression", "EOF")
+    } else {
+        Ok(result)
+    }
 }
 
 pub fn parse_stmt(input: &str) -> Result<Statement> {
     let tokens = lexer::lex(input)?;
     let mut parser = Parser::from_tokens(&tokens);
-    let expr = parser.stmt()?;
+    let result = parser.stmt()?;
     if !parser.eof() {
         parser.parse_error("statement", "EOF")
     } else {
-        Ok(expr)
+        Ok(result)
     }
 }
 
@@ -56,7 +63,7 @@ impl<'a> Parser<'a> {
             Token::Dot => {
                 self.next();
                 let method = self.identifier("method call")?;
-                let (args, block) = self.method_call_arguments()?;
+                let (args, block) = self.method_call_arguments(ListCardinality::PossiblyEmpty)?;
                 Ok(Expr::MethodCall {
                     receiver: Some(Box::new(expr)),
                     method,
@@ -79,11 +86,17 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn method_call_arguments(&mut self) -> Result<(Vec<Expr>, Option<Block>)> {
+    fn method_call_arguments(
+        &mut self,
+        cardinality: ListCardinality,
+    ) -> Result<(Vec<Expr>, Option<Block>)> {
+        if self.newline_before() {
+            return self.parse_error("method call arguments", "expression or (");
+        }
         let args = match self.peek() {
             Token::LParen => {
                 self.next();
-                let exprs = self.expr_list()?;
+                let exprs = self.expr_list(ListCardinality::PossiblyEmpty)?;
                 match self.peek() {
                     Token::RParen => {
                         self.next();
@@ -94,16 +107,21 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            _ => self.expr_list()?,
+            _ => self.expr_list(cardinality)?,
         };
         Ok((args, None))
     }
 
-    fn expr_list(&mut self) -> Result<Vec<Expr>> {
+    fn expr_list(&mut self, cardinality: ListCardinality) -> Result<Vec<Expr>> {
         let mut result = vec![];
         match self.try_(|p| p.expr())? {
             Some(expr) => result.push(expr),
-            None => return Ok(vec![]),
+            None => match cardinality {
+                ListCardinality::PossiblyEmpty => return Ok(vec![]),
+                ListCardinality::NonEmpty => {
+                    return self.parse_error("expression list", "expression")
+                }
+            },
         }
         while *self.peek() == Token::Comma {
             self.next();
@@ -156,13 +174,28 @@ impl<'a> Parser<'a> {
             Token::Identifier(ident) => {
                 let ident = ident.clone();
                 self.next();
+
+                if let Some((args, block)) =
+                    self.try_(|p| p.method_call_arguments(ListCardinality::NonEmpty))?
+                {
+                    return Ok(Expr::MethodCall {
+                        receiver: None,
+                        method: ident,
+                        args,
+                        block,
+                    });
+                }
+
                 Ok(Expr::Var(ident))
             }
             Token::LParen => {
                 self.next();
                 let expr = self.expr()?;
                 match self.peek() {
-                    Token::RParen => Ok(expr),
+                    Token::RParen => {
+                        self.next();
+                        Ok(expr)
+                    }
                     _ => self.parse_error("parenthesized expression", ")"),
                 }
             }
@@ -205,6 +238,14 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn newline_before(&self) -> bool {
+        if self.pos >= self.input.len() {
+            false
+        } else {
+            self.input[self.pos].newline_before
+        }
+    }
+
     fn next(&mut self) {
         self.pos += 1;
     }
@@ -222,16 +263,22 @@ impl<'a> Parser<'a> {
     where
         F: FnOnce(&mut Self) -> Result<A>,
     {
+        let start_pos = self.pos;
         match parse(self) {
             Err(ParseError::ParseError {
                 context: _,
                 expected: _,
                 got: _,
                 pos,
-            }) if pos == self.pos => Ok(None),
+            }) if pos == start_pos => Ok(None),
             r => r.map(Some),
         }
     }
+}
+
+enum ListCardinality {
+    NonEmpty,
+    PossiblyEmpty,
 }
 
 #[cfg(test)]
@@ -407,6 +454,112 @@ mod tests {
             Err(ParseError::ParseError {
                 context: "expression",
                 expected: "identifier, nil, self, integer literal, string literal, @, :, (",
+                got: Token::EOF,
+                pos: 5,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_method_call_on_self_without_parens() {
+        test_parse_expr(
+            "bar 1",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1)],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar 1, 2 ",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar 1, 2, 3 ",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![
+                    Expr::IntegerLiteral(1),
+                    Expr::IntegerLiteral(2),
+                    Expr::IntegerLiteral(3),
+                ],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar 1,",
+            Err(ParseError::ParseError {
+                context: "expression",
+                expected: "identifier, nil, self, integer literal, string literal, @, :, (",
+                got: Token::EOF,
+                pos: 3,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_method_call_on_self_with_parens() {
+        test_parse_expr(
+            "bar(1)",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1)],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar()",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar(1, 2)",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar(1, 2, 3)",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![
+                    Expr::IntegerLiteral(1),
+                    Expr::IntegerLiteral(2),
+                    Expr::IntegerLiteral(3),
+                ],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar(1,",
+            Err(ParseError::ParseError {
+                context: "expression",
+                expected: "identifier, nil, self, integer literal, string literal, @, :, (",
+                got: Token::EOF,
+                pos: 4,
+            }),
+        );
+        test_parse_expr(
+            "bar(1,2",
+            Err(ParseError::ParseError {
+                context: "method call arguments",
+                expected: ")",
                 got: Token::EOF,
                 pos: 5,
             }),
