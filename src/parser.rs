@@ -209,7 +209,11 @@ impl<'a> Parser<'a> {
     fn stmt(&mut self) -> Result<Statement> {
         let mut result = vec![self.atomic_stmt()?];
 
-        while let Some(stmt) = self.try_(|p| p.atomic_stmt())? {
+        while let Some(stmt) = if self.newline_before() {
+            self.try_(|p| p.atomic_stmt())?
+        } else {
+            None
+        } {
             result.push(stmt);
         }
 
@@ -588,12 +592,12 @@ mod tests {
         );
         test_parse_stmt(
             "
-            foo.bar()
+            bar()
             foo.baz()
             ",
             Ok(Statement::Sequence(vec![
                 Statement::Expression(Expr::MethodCall {
-                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                    receiver: None,
                     method: "bar".to_string(),
                     args: vec![],
                     block: None,
@@ -605,6 +609,19 @@ mod tests {
                     block: None,
                 }),
             ])),
+        );
+    }
+
+    #[test]
+    fn test_sequence_should_require_newline() {
+        test_parse_stmt(
+            "foo.bar() foo.baz()",
+            Err(ParseError::ParseError {
+                context: "statement",
+                expected: "EOF",
+                got: Token::Identifier("foo".to_string()),
+                pos: 5,
+            }),
         );
     }
 
