@@ -267,16 +267,8 @@ mod tests {
             if # This is a comment
             1
             ",
-            Ok(vec![
-                Token::If,
-                Token::IntegerLiteral(1),
-            ]),
+            Ok(vec![Token::If, Token::IntegerLiteral(1)]),
         );
-        test_lex(
-            "if#comment",
-            Ok(vec![
-                Token::If,
-            ]),
-        );
+        test_lex("if#comment", Ok(vec![Token::If]));
     }
 }

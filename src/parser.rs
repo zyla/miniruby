@@ -38,7 +38,7 @@ impl<'a> Parser<'a> {
     fn from_tokens(tokens: &'a [TokenInfo]) -> Self {
         Parser {
             input: tokens,
-            pos: 0
+            pos: 0,
         }
     }
 
@@ -156,7 +156,10 @@ impl<'a> Parser<'a> {
                     _ => self.parse_error("parenthesized expression", ")"),
                 }
             }
-            _ => self.parse_error("expression", "identifier, nil, self, integer literal, string literal, @, :, ("),
+            _ => self.parse_error(
+                "expression",
+                "identifier, nil, self, integer literal, string literal, @, :, (",
+            ),
         }
     }
 
@@ -201,9 +204,17 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn try_<A, F>(&mut self, parse: F) -> Result<Option<A>> where F: FnOnce(&mut Self) -> Result<A> {
+    fn try_<A, F>(&mut self, parse: F) -> Result<Option<A>>
+    where
+        F: FnOnce(&mut Self) -> Result<A>,
+    {
         match parse(self) {
-            Err(ParseError::ParseError{context: _, expected: _, got: _, pos}) if pos == self.pos => Ok(None),
+            Err(ParseError::ParseError {
+                context: _,
+                expected: _,
+                got: _,
+                pos,
+            }) if pos == self.pos => Ok(None),
             r => r.map(Some),
         }
     }
@@ -258,7 +269,7 @@ mod tests {
                 context: "instance variable",
                 expected: "identifier",
                 got: Token::IntegerLiteral(1),
-                pos: 1
+                pos: 1,
             }),
         );
     }
