@@ -420,4 +420,44 @@ mod tests {
             ])),
         );
     }
+
+    #[test]
+    fn test_multiline_method_call() {
+        test_parse_stmt(
+            "
+            foo.bar 1,
+              2,
+              3
+            ",
+            Ok(Statement::Expression(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![
+                    Expr::IntegerLiteral(1),
+                    Expr::IntegerLiteral(2),
+                    Expr::IntegerLiteral(3),
+                ],
+                block: None,
+            })),
+        );
+        test_parse_stmt(
+            "
+            foo.bar(
+              1,
+              2,
+              3
+            )
+            ",
+            Ok(Statement::Expression(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![
+                    Expr::IntegerLiteral(1),
+                    Expr::IntegerLiteral(2),
+                    Expr::IntegerLiteral(3),
+                ],
+                block: None,
+            })),
+        );
+    }
 }
