@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
             Token::Dot => {
                 self.next();
                 let method = self.identifier("method call")?;
-                let (args, block) = self.method_call_arguments()?;
+                let (args, block) = self.method_call_arguments(ListCardinality::PossiblyEmpty)?;
                 Ok(Expr::MethodCall {
                     receiver: Some(Box::new(expr)),
                     method,
@@ -93,11 +93,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn method_call_arguments(&mut self) -> Result<(Vec<Expr>, Option<Block>)> {
+    fn method_call_arguments(&mut self, cardinality: ListCardinality) -> Result<(Vec<Expr>, Option<Block>)> {
+        if self.newline_before() {
+            return Err(NoMatch);
+        }
         let args = match self.peek() {
             Token::LParen => {
                 self.next();
-                let exprs = self.expr_list()?;
+                let exprs = self.expr_list(ListCardinality::PossiblyEmpty)?;
                 match self.peek() {
                     Token::RParen => exprs,
                     _ => {
@@ -105,16 +108,21 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            _ => self.expr_list()?,
+            _ => self.expr_list(cardinality)?,
         };
         Ok((args, None))
     }
 
-    fn expr_list(&mut self) -> Result<Vec<Expr>> {
+    fn expr_list(&mut self, cardinality: ListCardinality) -> Result<Vec<Expr>> {
         let mut result = vec![];
         match try_(self.expr())? {
             Some(expr) => result.push(expr),
-            None => return Ok(vec![]),
+            None => {
+                match cardinality {
+                    ListCardinality::PossiblyEmpty => return Ok(vec![]),
+                    ListCardinality::NonEmpty => return Err(NoMatch)
+                }
+            }
         }
         while *self.peek() == Token::Comma {
             self.next();
@@ -167,6 +175,16 @@ impl<'a> Parser<'a> {
             Token::Identifier(ident) => {
                 let ident = ident.clone();
                 self.next();
+
+                if let Some((args, block)) = try_(self.method_call_arguments(ListCardinality::NonEmpty))? {
+                    return Ok(Expr::MethodCall {
+                        receiver: None,
+                        method: ident,
+                        args,
+                        block,
+                    })
+                }
+
                 Ok(Expr::Var(ident))
             }
             Token::LParen => {
@@ -209,6 +227,14 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn newline_before(&self) -> bool {
+        if self.pos >= self.input.len() {
+            false
+        } else {
+            self.input[self.pos].newline_before
+        }
+    }
+
     fn next(&mut self) {
         self.pos += 1;
     }
@@ -220,6 +246,11 @@ impl<'a> Parser<'a> {
             got: self.peek().clone(),
         })
     }
+}
+
+enum ListCardinality {
+  NonEmpty,
+  PossiblyEmpty
 }
 
 fn try_<A>(r: Result<A>) -> Result<Option<A>> {
@@ -398,6 +429,109 @@ mod tests {
             Err(ParseError::ParseError {
                 context: "expression",
                 expected: "expression",
+                got: Token::EOF,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_method_call_on_self_without_parens() {
+        test_parse_expr(
+            "bar 1",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1)],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar 1, 2 ",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar 1, 2, 3 ",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![
+                    Expr::IntegerLiteral(1),
+                    Expr::IntegerLiteral(2),
+                    Expr::IntegerLiteral(3),
+                ],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar 1,",
+            Err(ParseError::ParseError {
+                context: "expression",
+                expected: "expression",
+                got: Token::EOF,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_method_call_on_self_with_parens() {
+        test_parse_expr(
+            "bar(1)",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1)],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar()",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar(1, 2)",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar(1, 2, 3)",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![
+                    Expr::IntegerLiteral(1),
+                    Expr::IntegerLiteral(2),
+                    Expr::IntegerLiteral(3),
+                ],
+                block: None,
+            }),
+        );
+        test_parse_expr(
+            "bar(1,",
+            Err(ParseError::ParseError {
+                context: "expression",
+                expected: "expression",
+                got: Token::EOF,
+            }),
+        );
+        test_parse_expr(
+            "bar(1,2",
+            Err(ParseError::ParseError {
+                context: "method call arguments",
+                expected: ")",
                 got: Token::EOF,
             }),
         );
