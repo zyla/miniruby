@@ -1,0 +1,6 @@
+#!/bin/bash
+exec docker run --rm \
+  -it --user "$(id -u)":"$(id -g)" \
+  -v rust-usr-local:/usr/local \
+  -v "$PWD":/app -w /app \
+  rust "$@"
