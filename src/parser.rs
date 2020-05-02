@@ -8,12 +8,10 @@ pub enum ParseError {
         context: &'static str,
         expected: &'static str,
         got: Token,
+        pos: usize, // token index, not character index
     },
     LexicalError(String),
-    NoMatch,
 }
-
-use ParseError::NoMatch;
 
 impl From<lexer::Error> for ParseError {
     fn from(e: lexer::Error) -> Self {
@@ -24,37 +22,11 @@ impl From<lexer::Error> for ParseError {
 type Result<T> = ::std::result::Result<T, ParseError>;
 
 pub fn parse_expr(input: &str) -> Result<Expr> {
-    let tokens = lexer::lex(input)?;
-    let mut parser = Parser {
-        input: &tokens,
-        pos: 0,
-    };
-    match parser.expr() {
-        Ok(x) => Ok(x),
-        Err(NoMatch) => Err(ParseError::ParseError {
-            context: "expression",
-            expected: "expression",
-            got: parser.peek().clone(),
-        }),
-        Err(e) => Err(e),
-    }
+    Parser::from_tokens(&lexer::lex(input)?).expr()
 }
 
 pub fn parse_stmt(input: &str) -> Result<Statement> {
-    let tokens = lexer::lex(input)?;
-    let mut parser = Parser {
-        input: &tokens,
-        pos: 0,
-    };
-    match parser.stmt() {
-        Ok(x) => Ok(x),
-        Err(NoMatch) => Err(ParseError::ParseError {
-            context: "statement",
-            expected: "statement",
-            got: parser.peek().clone(),
-        }),
-        Err(e) => Err(e),
-    }
+    Parser::from_tokens(&lexer::lex(input)?).stmt()
 }
 
 struct Parser<'a> {
@@ -63,6 +35,13 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    fn from_tokens(tokens: &'a [TokenInfo]) -> Self {
+        Parser {
+            input: tokens,
+            pos: 0
+        }
+    }
+
     fn expr(&mut self) -> Result<Expr> {
         let expr = self.primary_expr()?;
 
@@ -112,7 +91,7 @@ impl<'a> Parser<'a> {
 
     fn expr_list(&mut self) -> Result<Vec<Expr>> {
         let mut result = vec![];
-        match try_(self.expr())? {
+        match self.try_(|p| p.expr())? {
             Some(expr) => result.push(expr),
             None => return Ok(vec![]),
         }
@@ -177,14 +156,14 @@ impl<'a> Parser<'a> {
                     _ => self.parse_error("parenthesized expression", ")"),
                 }
             }
-            _ => Err(NoMatch),
+            _ => self.parse_error("expression", "identifier, nil, self, integer literal, string literal, @, :, ("),
         }
     }
 
     fn stmt(&mut self) -> Result<Statement> {
         let mut result = vec![self.atomic_stmt()?];
 
-        while let Some(stmt) = try_(self.atomic_stmt())? {
+        while let Some(stmt) = self.try_(|p| p.atomic_stmt())? {
             result.push(stmt);
         }
 
@@ -218,14 +197,15 @@ impl<'a> Parser<'a> {
             context,
             expected,
             got: self.peek().clone(),
+            pos: self.pos,
         })
     }
-}
 
-fn try_<A>(r: Result<A>) -> Result<Option<A>> {
-    match r {
-        Err(NoMatch) => Ok(None),
-        _ => r.map(Some),
+    fn try_<A, F>(&mut self, parse: F) -> Result<Option<A>> where F: FnOnce(&mut Self) -> Result<A> {
+        match parse(self) {
+            Err(ParseError::ParseError{context: _, expected: _, got: _, pos}) if pos == self.pos => Ok(None),
+            r => r.map(Some),
+        }
     }
 }
 
@@ -263,6 +243,7 @@ mod tests {
                 context: "symbol",
                 expected: "identifier, string literal",
                 got: Token::IntegerLiteral(1),
+                pos: 1,
             }),
         );
     }
@@ -277,6 +258,7 @@ mod tests {
                 context: "instance variable",
                 expected: "identifier",
                 got: Token::IntegerLiteral(1),
+                pos: 1
             }),
         );
     }
@@ -346,8 +328,9 @@ mod tests {
             "foo.bar(1,",
             Err(ParseError::ParseError {
                 context: "expression",
-                expected: "expression",
+                expected: "identifier, nil, self, integer literal, string literal, @, :, (",
                 got: Token::EOF,
+                pos: 6,
             }),
         );
         test_parse_expr(
@@ -356,6 +339,7 @@ mod tests {
                 context: "method call arguments",
                 expected: ")",
                 got: Token::EOF,
+                pos: 7,
             }),
         );
     }
@@ -397,8 +381,9 @@ mod tests {
             "foo.bar 1,",
             Err(ParseError::ParseError {
                 context: "expression",
-                expected: "expression",
+                expected: "identifier, nil, self, integer literal, string literal, @, :, (",
                 got: Token::EOF,
+                pos: 5,
             }),
         );
     }
