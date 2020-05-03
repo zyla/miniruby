@@ -14,16 +14,25 @@ pub enum Expr {
         if_true: Box<Expr>,
         if_false: Option<Box<Expr>>,
     },
+    While {
+        condition: Box<Expr>,
+        body: Box<Expr>,
+    },
     MethodCall {
         receiver: Option<Box<Expr>>,
         method: Identifier,
         args: Vec<Expr>,
-        block: Option<Block>,
+        block: Option<Box<Block>>,
     },
     Block(Box<Expr>),
     Sequence(Vec<Expr>),
     Assignment(Box<Expr>, Box<Expr>),
 }
 
+pub type Param = Identifier;
+
 #[derive(PartialEq, Eq, Debug)]
-pub enum Block {}
+pub struct Block {
+    pub params: Vec<Param>,
+    pub body: Expr,
+}
