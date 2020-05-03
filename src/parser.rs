@@ -122,15 +122,8 @@ impl<'a> Parser<'a> {
             Token::LParen => {
                 self.next();
                 let exprs = self.expr_list(ListCardinality::PossiblyEmpty)?;
-                match self.peek() {
-                    Token::RParen => {
-                        self.next();
-                        exprs
-                    }
-                    _ => {
-                        return self.parse_error("method call arguments", ")");
-                    }
-                }
+                self.consume(Token::RParen, "method call arguments", ")")?;
+                exprs
             }
             _ => self.expr_list(cardinality)?,
         };
@@ -216,18 +209,41 @@ impl<'a> Parser<'a> {
             Token::LParen => {
                 self.next();
                 let expr = self.expr()?;
-                match self.peek() {
-                    Token::RParen => {
+                self.consume(Token::RParen, "parenthesized expression", ")")?;
+                Ok(expr)
+            }
+            Token::If => {
+                self.next();
+                let condition = Box::new(self.expr()?);
+                self.consume(Token::Then, "if", "then")?;
+                let if_true = Box::new(self.expr()?);
+                let if_false = match self.peek() {
+                    Token::Else => {
                         self.next();
-                        Ok(expr)
+                        Some(Box::new(self.expr()?))
                     }
-                    _ => self.parse_error("parenthesized expression", ")"),
-                }
+                    _ => None,
+                };
+                self.consume(Token::End, "if", "end")?;
+                Ok(Expr::If {
+                    condition,
+                    if_true,
+                    if_false,
+                })
             }
             _ => self.parse_error(
                 "expression",
                 "identifier, nil, self, integer literal, string literal, @, :, (",
             ),
+        }
+    }
+
+    fn consume(&mut self, tok: Token, context: &'static str, expected: &'static str) -> Result<()> {
+        if *self.peek() == tok {
+            self.next();
+            Ok(())
+        } else {
+            self.parse_error(context, expected)
         }
     }
 
@@ -728,6 +744,26 @@ mod tests {
                     block: None,
                 }),
             )),
+        );
+    }
+
+    #[test]
+    fn test_if() {
+        test_parse_expr(
+            "if 1 then 2 end",
+            Ok(Expr::If {
+                condition: Box::new(Expr::IntegerLiteral(1)),
+                if_true: Box::new(Expr::IntegerLiteral(2)),
+                if_false: None,
+            }),
+        );
+        test_parse_expr(
+            "if 1 then 2 else 3 end",
+            Ok(Expr::If {
+                condition: Box::new(Expr::IntegerLiteral(1)),
+                if_true: Box::new(Expr::IntegerLiteral(2)),
+                if_false: Some(Box::new(Expr::IntegerLiteral(3))),
+            }),
         );
     }
 }
