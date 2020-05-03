@@ -3,6 +3,7 @@ pub enum Token {
     IntegerLiteral(usize),
     StringLiteral(String),
     Identifier(String),
+    Symbol(String),
 
     // Operators
     LParen,
@@ -15,7 +16,6 @@ pub enum Token {
 
     // Not technically operators, but parsed the same way
     At,
-    Colon,
 
     // Keywords
     Nil,

@@ -74,41 +74,32 @@ impl<'a> Lexer<'a> {
                     self.push_token(Token::IntegerLiteral(value));
                 }
                 '"' => {
-                    let mut content: Vec<u8> = vec![];
-                    loop {
-                        if self.eof() {
-                            return Err(Error("Unterminated string literal".to_string()));
-                        }
-                        match self.peek() {
-                            '"' => {
-                                self.next();
-                                break;
-                            }
-                            '\\' => {
-                                self.next();
-                                if self.eof() {
-                                    return Err(Error("Unterminated string literal".to_string()));
-                                }
-                                content.push(match self.peek() {
-                                    'n' => b'\n',
-                                    't' => b'\t',
-                                    c => c as u8,
-                                });
-                            }
-                            c => {
-                                content.push(c as u8);
-                            }
-                        }
-                        self.next();
-                    }
-                    self.push_token(Token::StringLiteral(String::from_utf8(content).unwrap()));
+                    let s = self.parse_string_literal()?;
+                    self.push_token(Token::StringLiteral(s));
                 }
+                ':' => match self.peek() {
+                    '"' => {
+                        self.next();
+                        let s = self.parse_string_literal()?;
+                        self.push_token(Token::Symbol(s));
+                    }
+                    _ => {
+                        while !self.eof() && is_symbol_char(self.peek()) {
+                            self.next();
+                        }
+                        self.push_token(Token::Symbol(
+                            String::from_utf8(
+                                self.input[(self.token_start + 1)..self.pos].to_vec(),
+                            )
+                            .unwrap(),
+                        ));
+                    }
+                },
                 '(' => self.push_token(Token::LParen),
                 ')' => self.push_token(Token::RParen),
                 '=' => self.push_token(Token::Equal),
                 '|' => self.push_token(Token::Pipe),
                 '@' => self.push_token(Token::At),
-                ':' => self.push_token(Token::Colon),
                 ',' => self.push_token(Token::Comma),
                 ';' => self.push_token(Token::Semicolon),
                 '.' => self.push_token(Token::Dot),
@@ -137,6 +128,37 @@ impl<'a> Lexer<'a> {
             newline_before: self.has_newline,
         });
     }
+
+    fn parse_string_literal(&mut self) -> Result<String> {
+        let mut content: Vec<u8> = vec![];
+        loop {
+            if self.eof() {
+                return Err(Error("Unterminated string literal".to_string()));
+            }
+            match self.peek() {
+                '"' => {
+                    self.next();
+                    break;
+                }
+                '\\' => {
+                    self.next();
+                    if self.eof() {
+                        return Err(Error("Unterminated string literal".to_string()));
+                    }
+                    content.push(match self.peek() {
+                        'n' => b'\n',
+                        't' => b'\t',
+                        c => c as u8,
+                    });
+                }
+                c => {
+                    content.push(c as u8);
+                }
+            }
+            self.next();
+        }
+        Ok(String::from_utf8(content).unwrap())
+    }
 }
 
 fn ident_to_token(ident: &[u8]) -> Token {
@@ -163,6 +185,10 @@ fn is_ident_start(c: char) -> bool {
 
 fn is_ident_char(c: char) -> bool {
     is_ident_start(c) || is_digit(c) || c == '?' || c == '!'
+}
+
+fn is_symbol_char(c: char) -> bool {
+    is_ident_char(c) || c == '='
 }
 
 fn is_digit(c: char) -> bool {
@@ -202,6 +228,16 @@ mod tests {
             Ok(vec![Token::Identifier("exists?".to_string())]),
         );
         test_lex("send!", Ok(vec![Token::Identifier("send!".to_string())]));
+    }
+
+    #[test]
+    fn test_symbol() {
+        test_lex(
+            ":asdzASDZ_09=",
+            Ok(vec![Token::Symbol("asdzASDZ_09=".to_string())]),
+        );
+        test_lex(":then", Ok(vec![Token::Symbol("then".to_string())]));
+        test_lex(r#"  :"foo"  "#, Ok(vec![Token::Symbol("foo".to_string())]));
     }
 
     #[test]
@@ -245,14 +281,13 @@ mod tests {
     #[test]
     fn test_operators() {
         test_lex(
-            "( ) = | @ : , ; .",
+            "( ) = | @ , ; .",
             Ok(vec![
                 Token::LParen,
                 Token::RParen,
                 Token::Equal,
                 Token::Pipe,
                 Token::At,
-                Token::Colon,
                 Token::Comma,
                 Token::Semicolon,
                 Token::Dot,

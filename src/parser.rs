@@ -180,21 +180,10 @@ impl<'a> Parser<'a> {
                 self.next();
                 Ok(Expr::StringLiteral(value))
             }
-            Token::Colon => {
+            Token::Symbol(s) => {
+                let s = s.clone();
                 self.next();
-                match self.peek() {
-                    Token::Identifier(s) => {
-                        let s = s.clone();
-                        self.next();
-                        Ok(Expr::Symbol(s))
-                    }
-                    Token::StringLiteral(s) => {
-                        let s = s.clone();
-                        self.next();
-                        Ok(Expr::Symbol(s))
-                    }
-                    _ => self.parse_error("symbol", "identifier, string literal"),
-                }
+                Ok(Expr::Symbol(s))
             }
             Token::At => {
                 self.next();
@@ -336,16 +325,6 @@ mod tests {
         test_parse_expr("123", Ok(Expr::IntegerLiteral(123)));
         test_parse_expr(r#"  "foo"  "#, Ok(Expr::StringLiteral("foo".to_string())));
         test_parse_expr(":foo", Ok(Expr::Symbol("foo".to_string())));
-        test_parse_expr(r#"  :"foo"  "#, Ok(Expr::Symbol("foo".to_string())));
-        test_parse_expr(
-            ":1",
-            Err(ParseError::ParseError {
-                context: "symbol",
-                expected: "identifier, string literal",
-                got: Token::IntegerLiteral(1),
-                pos: 1,
-            }),
-        );
     }
 
     #[test]
