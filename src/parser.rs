@@ -272,12 +272,7 @@ impl<'a> Parser<'a> {
     {
         let start_pos = self.pos;
         match parse(self) {
-            Err(ParseError::ParseError {
-                context: _,
-                expected: _,
-                got: _,
-                pos,
-            }) if pos == start_pos => Ok(None),
+            Err(ParseError::ParseError { pos, .. }) if pos == start_pos => Ok(None),
             r => r.map(Some),
         }
     }
