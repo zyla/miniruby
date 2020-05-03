@@ -20,14 +20,9 @@ pub enum Expr {
         args: Vec<Expr>,
         block: Option<Block>,
     },
-    Block(Box<Statement>),
+    Block(Box<Expr>),
+    Sequence(Vec<Expr>),
 }
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Block {}
-
-#[derive(PartialEq, Eq, Debug)]
-pub enum Statement {
-    Expression(Expr),
-    Sequence(Vec<Statement>),
-}

@@ -32,17 +32,6 @@ pub fn parse_expr(input: &str) -> Result<Expr> {
     }
 }
 
-pub fn parse_stmt(input: &str) -> Result<Statement> {
-    let tokens = lexer::lex(input)?;
-    let mut parser = Parser::from_tokens(&tokens);
-    let result = parser.stmt()?;
-    if !parser.eof() {
-        parser.parse_error("statement", "EOF")
-    } else {
-        Ok(result)
-    }
-}
-
 struct Parser<'a> {
     input: &'a [TokenInfo],
     pos: usize,
@@ -57,6 +46,26 @@ impl<'a> Parser<'a> {
     }
 
     fn expr(&mut self) -> Result<Expr> {
+        let mut result = vec![self.atomic_expr()?];
+
+        while let Some(stmt) = if self.newline_before() {
+            self.try_(|p| p.atomic_expr())?
+        } else {
+            None
+        } {
+            result.push(stmt);
+        }
+
+        if result.len() == 1 {
+            Ok(result
+                .pop()
+                .expect("we just checked that the vector has len 1"))
+        } else {
+            Ok(Expr::Sequence(result))
+        }
+    }
+
+    fn atomic_expr(&mut self) -> Result<Expr> {
         let expr = self.primary_expr()?;
 
         match self.peek() {
@@ -206,30 +215,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn stmt(&mut self) -> Result<Statement> {
-        let mut result = vec![self.atomic_stmt()?];
-
-        while let Some(stmt) = if self.newline_before() {
-            self.try_(|p| p.atomic_stmt())?
-        } else {
-            None
-        } {
-            result.push(stmt);
-        }
-
-        if result.len() == 1 {
-            Ok(result
-                .pop()
-                .expect("we just checked that the vector has len 1"))
-        } else {
-            Ok(Statement::Sequence(result))
-        }
-    }
-
-    fn atomic_stmt(&mut self) -> Result<Statement> {
-        Ok(Statement::Expression(self.expr()?))
-    }
-
     fn eof(&self) -> bool {
         self.pos >= self.input.len()
     }
@@ -291,14 +276,6 @@ mod tests {
 
     fn test_parse_expr(input: &str, expected_result: Result<Expr>) {
         let result = parse_expr(input);
-        if result != expected_result {
-            panic!("Test failed.\n            input: {:?}\n  expected result: {:?}\n    actual result: {:?}\n",
-                   input, expected_result, result);
-        }
-    }
-
-    fn test_parse_stmt(input: &str, expected_result: Result<Statement>) {
-        let result = parse_stmt(input);
         if result != expected_result {
             panic!("Test failed.\n            input: {:?}\n  expected result: {:?}\n    actual result: {:?}\n",
                    input, expected_result, result);
@@ -572,52 +549,52 @@ mod tests {
 
     #[test]
     fn test_single_stmt() {
-        test_parse_stmt(
+        test_parse_expr(
             "foo",
-            Ok(Statement::Expression(Expr::Var("foo".to_string()))),
+            Ok(Expr::Var("foo".to_string())),
         );
     }
 
     #[test]
     fn test_sequence() {
-        test_parse_stmt(
+        test_parse_expr(
             "
             foo
             bar
             ",
-            Ok(Statement::Sequence(vec![
-                Statement::Expression(Expr::Var("foo".to_string())),
-                Statement::Expression(Expr::Var("bar".to_string())),
+            Ok(Expr::Sequence(vec![
+                Expr::Var("foo".to_string()),
+                Expr::Var("bar".to_string()),
             ])),
         );
-        test_parse_stmt(
+        test_parse_expr(
             "
             bar()
             foo.baz()
             ",
-            Ok(Statement::Sequence(vec![
-                Statement::Expression(Expr::MethodCall {
+            Ok(Expr::Sequence(vec![
+                Expr::MethodCall {
                     receiver: None,
                     method: "bar".to_string(),
                     args: vec![],
                     block: None,
-                }),
-                Statement::Expression(Expr::MethodCall {
+                },
+                Expr::MethodCall {
                     receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                     method: "baz".to_string(),
                     args: vec![],
                     block: None,
-                }),
+                },
             ])),
         );
     }
 
     #[test]
     fn test_sequence_should_require_newline() {
-        test_parse_stmt(
+        test_parse_expr(
             "foo.bar() foo.baz()",
             Err(ParseError::ParseError {
-                context: "statement",
+                context: "expression",
                 expected: "EOF",
                 got: Token::Identifier("foo".to_string()),
                 pos: 5,
@@ -627,13 +604,13 @@ mod tests {
 
     #[test]
     fn test_multiline_method_call() {
-        test_parse_stmt(
+        test_parse_expr(
             "
             foo.bar 1,
               2,
               3
             ",
-            Ok(Statement::Expression(Expr::MethodCall {
+            Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
                 args: vec![
@@ -642,9 +619,9 @@ mod tests {
                     Expr::IntegerLiteral(3),
                 ],
                 block: None,
-            })),
+            }),
         );
-        test_parse_stmt(
+        test_parse_expr(
             "
             foo.bar(
               1,
@@ -652,7 +629,7 @@ mod tests {
               3
             )
             ",
-            Ok(Statement::Expression(Expr::MethodCall {
+            Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
                 args: vec![
@@ -661,7 +638,7 @@ mod tests {
                     Expr::IntegerLiteral(3),
                 ],
                 block: None,
-            })),
+            }),
         );
     }
 }

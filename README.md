@@ -26,7 +26,7 @@ class :Num do
 end
 ```
 
-Statement and expression syntax is similar to Ruby, but there are no infix operators except `=` (assignment).
+Expression syntax is similar to Ruby, but there are no infix operators except `=` (assignment). Statements and expressions are the same syntactic category.
 
 ## What is implemented
 
@@ -45,10 +45,13 @@ expr = "nil"
      | method_call                       (* method call on self *)
      | ":" identifier                    (* symbol *)
      | "@" identifier                    (* instance variable *)
-     | "if", expr, "then", stmt,
-          [ "else", stmt ], "end"        (* conditional *)
+     | "if", expr, "then", expr,
+          [ "else", expr ], "end"        (* conditional *)
      | block
      | "(", expr, ")"
+     | expr, { newline, expr }           (* sequence *)
+     | "while", expr, "do", expr, "end"  (* while loop *)
+     | expr, "=", expr                   (* assignment *)
      ;
 
 method_call = identifier, expr_list, [ block ];
@@ -57,10 +60,5 @@ expr_list = [ expr, { "," expr } ];
 
 identifier_list = [ identifier, { "," identifier } ];
 
-block = "do", [ "|", identifier_list, "|" ], stmt, "end"
-
-stmt = expr
-     | expr, "=", expr                   (* assignment *)
-     | "while", expr, "do", stmt, "end"  (* while loop *)
-     | stmt, stmt                        (* sequence *)
+block = "do", [ "|", identifier_list, "|" ], expr, "end"
 ```
