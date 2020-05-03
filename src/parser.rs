@@ -66,6 +66,24 @@ impl<'a> Parser<'a> {
     }
 
     fn atomic_expr(&mut self) -> Result<Expr> {
+        self.assignment_expr()
+    }
+
+    fn assignment_expr(&mut self) -> Result<Expr> {
+        let expr = self.method_call_expr()?;
+
+        match self.peek() {
+            Token::Equal => {
+                self.next();
+
+                let rhs = self.method_call_expr()?;
+                Ok(Expr::Assignment(Box::new(expr), Box::new(rhs)))
+            }
+            _ => Ok(expr),
+        }
+    }
+
+    fn method_call_expr(&mut self) -> Result<Expr> {
         let expr = self.primary_expr()?;
 
         match self.peek() {
@@ -549,10 +567,7 @@ mod tests {
 
     #[test]
     fn test_single_stmt() {
-        test_parse_expr(
-            "foo",
-            Ok(Expr::Var("foo".to_string())),
-        );
+        test_parse_expr("foo", Ok(Expr::Var("foo".to_string())));
     }
 
     #[test]
@@ -639,6 +654,17 @@ mod tests {
                 ],
                 block: None,
             }),
+        );
+    }
+
+    #[test]
+    fn test_assignment() {
+        test_parse_expr(
+            "foo = bar",
+            Ok(Expr::Assignment(
+                Box::new(Expr::Var("foo".to_string())),
+                Box::new(Expr::Var("bar".to_string())),
+            )),
         );
     }
 }

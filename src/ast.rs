@@ -22,6 +22,7 @@ pub enum Expr {
     },
     Block(Box<Expr>),
     Sequence(Vec<Expr>),
+    Assignment(Box<Expr>, Box<Expr>),
 }
 
 #[derive(PartialEq, Eq, Debug)]
