@@ -662,4 +662,20 @@ mod tests {
             )),
         );
     }
+
+    #[test]
+    fn test_method_call_has_precedence_over_assignment() {
+        test_parse_expr(
+            "foo = bar.baz",
+            Ok(Expr::Assignment(
+                Box::new(Expr::Var("foo".to_string())),
+                Box::new(Expr::MethodCall {
+                    receiver: Some(Box::new(Expr::Var("bar".to_string()))),
+                    method: "baz".to_string(),
+                    args: vec![],
+                    block: None,
+                }),
+            )),
+        );
+    }
 }
