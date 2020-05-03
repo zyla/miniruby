@@ -84,22 +84,20 @@ impl<'a> Parser<'a> {
     }
 
     fn method_call_expr(&mut self) -> Result<Expr> {
-        let expr = self.primary_expr()?;
+        let mut expr = self.primary_expr()?;
 
-        match self.peek() {
-            Token::Dot => {
-                self.next();
-                let method = self.identifier("method call")?;
-                let (args, block) = self.method_call_arguments(ListCardinality::PossiblyEmpty)?;
-                Ok(Expr::MethodCall {
-                    receiver: Some(Box::new(expr)),
-                    method,
-                    args,
-                    block,
-                })
-            }
-            _ => Ok(expr),
+        while *self.peek() == Token::Dot {
+            self.next();
+            let method = self.identifier("method call")?;
+            let (args, block) = self.method_call_arguments(ListCardinality::PossiblyEmpty)?;
+            expr = Expr::MethodCall {
+                receiver: Some(Box::new(expr)),
+                method,
+                args,
+                block,
+            };
         }
+        Ok(expr)
     }
 
     fn identifier(&mut self, context: &'static str) -> Result<Identifier> {
@@ -343,6 +341,60 @@ mod tests {
                 receiver: Some(Box::new(Expr::Var("foo".to_string()))),
                 method: "bar".to_string(),
                 args: vec![],
+                block: None,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_chained_method_call() {
+        test_parse_expr(
+            "foo.bar.baz",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::MethodCall {
+                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                    method: "bar".to_string(),
+                    args: vec![],
+                    block: None,
+                })),
+                method: "baz".to_string(),
+                args: vec![],
+                block: None,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_chained_method_call_with_parens() {
+        test_parse_expr(
+            "foo.bar(1).baz(2)",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::MethodCall {
+                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                    method: "bar".to_string(),
+                    args: vec![Expr::IntegerLiteral(1)],
+                    block: None,
+                })),
+                method: "baz".to_string(),
+                args: vec![Expr::IntegerLiteral(2)],
+                block: None,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_method_call_inside_arg() {
+        test_parse_expr(
+            "foo.bar 1.baz",
+            Ok(Expr::MethodCall {
+                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
+                method: "bar".to_string(),
+                args: vec![Expr::MethodCall {
+                    receiver: Some(Box::new(Expr::IntegerLiteral(1))),
+                    method: "baz".to_string(),
+                    args: vec![],
+                    block: None,
+                }],
                 block: None,
             }),
         );
