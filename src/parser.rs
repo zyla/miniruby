@@ -806,6 +806,23 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "BUG, need to investigate why this is happening"]
+    fn test_method_call_on_self_with_block() {
+        test_parse_expr(
+            "bar do baz end",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "bar".to_string(),
+                args: vec![],
+                block: Some(Box::new(Block {
+                    params: vec![],
+                    body: Expr::Var("baz".to_string()),
+                })),
+            }),
+        );
+    }
+
+    #[test]
     fn test_while_with_method_call() {
         test_parse_expr(
             "while foo.bar do baz end",
