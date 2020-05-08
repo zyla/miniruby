@@ -70,26 +70,27 @@ impl<'a> Parser<'a> {
     }
 
     fn assignment_expr(&mut self) -> Result<Expr> {
-        let expr = self.method_call_expr()?;
+        let expr = self.method_call_expr(BlockPresence::WithBlock)?;
 
         match self.peek() {
             Token::Equal => {
                 self.next();
 
-                let rhs = self.method_call_expr()?;
+                let rhs = self.method_call_expr(BlockPresence::WithBlock)?;
                 Ok(Expr::Assignment(Box::new(expr), Box::new(rhs)))
             }
             _ => Ok(expr),
         }
     }
 
-    fn method_call_expr(&mut self) -> Result<Expr> {
-        let mut expr = self.primary_expr()?;
+    fn method_call_expr(&mut self, block_presence: BlockPresence) -> Result<Expr> {
+        let mut expr = self.primary_expr(block_presence)?;
 
         while *self.peek() == Token::Dot {
             self.next();
             let method = self.identifier("method call")?;
-            let (args, block) = self.method_call_arguments(ListCardinality::PossiblyEmpty)?;
+            let (args, block) =
+                self.method_call_arguments(ListCardinality::PossiblyEmpty, block_presence)?;
             expr = Expr::MethodCall {
                 receiver: Some(Box::new(expr)),
                 method,
@@ -114,6 +115,7 @@ impl<'a> Parser<'a> {
     fn method_call_arguments(
         &mut self,
         cardinality: ListCardinality,
+        block_presence: BlockPresence,
     ) -> Result<(Vec<Expr>, Option<Box<Block>>)> {
         if self.newline_before() {
             return self.parse_error("method call arguments", "expression or (");
@@ -128,7 +130,7 @@ impl<'a> Parser<'a> {
             _ => self.expr_list(cardinality)?,
         };
         let block = match self.peek() {
-            Token::Do => {
+            Token::Do if block_presence == BlockPresence::WithBlock => {
                 self.next();
                 let body = self.expr()?;
                 self.consume(Token::End, "block", "end")?;
@@ -160,7 +162,7 @@ impl<'a> Parser<'a> {
         Ok(result)
     }
 
-    fn primary_expr(&mut self) -> Result<Expr> {
+    fn primary_expr(&mut self, block_presence: BlockPresence) -> Result<Expr> {
         match self.peek() {
             Token::Nil => {
                 self.next();
@@ -194,8 +196,8 @@ impl<'a> Parser<'a> {
                 let ident = ident.clone();
                 self.next();
 
-                if let Some((args, block)) =
-                    self.try_(|p| p.method_call_arguments(ListCardinality::NonEmpty))?
+                if let Some((args, block)) = self
+                    .try_(|p| p.method_call_arguments(ListCardinality::NonEmpty, block_presence))?
                 {
                     return Ok(Expr::MethodCall {
                         receiver: None,
@@ -234,7 +236,7 @@ impl<'a> Parser<'a> {
             }
             Token::While => {
                 self.next();
-                let condition = Box::new(self.expr()?);
+                let condition = Box::new(self.method_call_expr(BlockPresence::WithoutBlock)?);
                 self.consume(Token::Do, "while", "do")?;
                 let body = Box::new(self.expr()?);
                 self.consume(Token::End, "while", "end")?;
@@ -301,9 +303,19 @@ impl<'a> Parser<'a> {
     }
 }
 
+/// When parsing a list, specifies if we allow an empty list.
+#[derive(PartialEq, Eq, Clone, Copy)]
 enum ListCardinality {
     NonEmpty,
     PossiblyEmpty,
+}
+
+/// When parsing a method call, specifies if we should consume a block immediately following it, or
+/// not.
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum BlockPresence {
+    WithBlock,
+    WithoutBlock,
 }
 
 #[cfg(test)]
@@ -794,7 +806,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Bug: We parse this wrong - block is consumed by method call, not by while."]
     fn test_while_with_method_call() {
         test_parse_expr(
             "while foo.bar do baz end",
