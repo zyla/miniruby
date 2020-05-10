@@ -127,6 +127,10 @@ impl<'a> Parser<'a> {
                 self.consume(Token::RParen, "method call arguments", ")")?;
                 exprs
             }
+            Token::Do => {
+                // Only block argument; expr cardinality doesn't matter
+                vec![]
+            }
             _ => self.expr_list(cardinality)?,
         };
         let block = match self.peek() {
@@ -806,7 +810,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "BUG, need to investigate why this is happening"]
     fn test_method_call_on_self_with_block() {
         test_parse_expr(
             "bar do baz end",
