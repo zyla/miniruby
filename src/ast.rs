@@ -24,7 +24,6 @@ pub enum Expr {
         args: Vec<Expr>,
         block: Option<Box<Block>>,
     },
-    Block(Box<Expr>),
     Sequence(Vec<Expr>),
     Assignment(Box<Expr>, Box<Expr>),
 }
