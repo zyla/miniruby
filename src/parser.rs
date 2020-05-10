@@ -358,14 +358,14 @@ mod tests {
         test_parse_expr("nil", Ok(Expr::NilLiteral));
         test_parse_expr("self", Ok(Expr::SelfLiteral));
         test_parse_expr("123", Ok(Expr::IntegerLiteral(123)));
-        test_parse_expr(r#"  "foo"  "#, Ok(Expr::StringLiteral("foo".to_string())));
-        test_parse_expr(":foo", Ok(Expr::Symbol("foo".to_string())));
+        test_parse_expr(r#"  "foo"  "#, Ok(Expr::StringLiteral("foo".into())));
+        test_parse_expr(":foo", Ok(Expr::Symbol("foo".into())));
     }
 
     #[test]
     fn test_variables() {
-        test_parse_expr("foo", Ok(Expr::Var("foo".to_string())));
-        test_parse_expr("@foo", Ok(Expr::InstanceVariable("foo".to_string())));
+        test_parse_expr("foo", Ok(Expr::Var("foo".into())));
+        test_parse_expr("@foo", Ok(Expr::InstanceVariable("foo".into())));
         test_parse_expr(
             "@1",
             Err(ParseError::ParseError {
@@ -379,8 +379,8 @@ mod tests {
 
     #[test]
     fn test_parens() {
-        test_parse_expr("(foo)", Ok(Expr::Var("foo".to_string())));
-        test_parse_expr("(((foo)))", Ok(Expr::Var("foo".to_string())));
+        test_parse_expr("(foo)", Ok(Expr::Var("foo".into())));
+        test_parse_expr("(((foo)))", Ok(Expr::Var("foo".into())));
     }
 
     #[test]
@@ -388,8 +388,8 @@ mod tests {
         test_parse_expr(
             "foo.bar",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![],
                 block: None,
             }),
@@ -402,12 +402,12 @@ mod tests {
             "foo.bar.baz",
             Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::MethodCall {
-                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                    method: "bar".to_string(),
+                    receiver: Some(Box::new(Expr::Var("foo".into()))),
+                    method: "bar".into(),
                     args: vec![],
                     block: None,
                 })),
-                method: "baz".to_string(),
+                method: "baz".into(),
                 args: vec![],
                 block: None,
             }),
@@ -420,12 +420,12 @@ mod tests {
             "foo.bar(1).baz(2)",
             Ok(Expr::MethodCall {
                 receiver: Some(Box::new(Expr::MethodCall {
-                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                    method: "bar".to_string(),
+                    receiver: Some(Box::new(Expr::Var("foo".into()))),
+                    method: "bar".into(),
                     args: vec![Expr::IntegerLiteral(1)],
                     block: None,
                 })),
-                method: "baz".to_string(),
+                method: "baz".into(),
                 args: vec![Expr::IntegerLiteral(2)],
                 block: None,
             }),
@@ -437,11 +437,11 @@ mod tests {
         test_parse_expr(
             "foo.bar 1.baz",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![Expr::MethodCall {
                     receiver: Some(Box::new(Expr::IntegerLiteral(1))),
-                    method: "baz".to_string(),
+                    method: "baz".into(),
                     args: vec![],
                     block: None,
                 }],
@@ -455,8 +455,8 @@ mod tests {
         test_parse_expr(
             "foo.bar(1)",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![Expr::IntegerLiteral(1)],
                 block: None,
             }),
@@ -464,8 +464,8 @@ mod tests {
         test_parse_expr(
             "foo.bar()",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![],
                 block: None,
             }),
@@ -473,8 +473,8 @@ mod tests {
         test_parse_expr(
             "foo.bar(1, 2)",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
                 block: None,
             }),
@@ -482,8 +482,8 @@ mod tests {
         test_parse_expr(
             "foo.bar(1, 2, 3)",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![
                     Expr::IntegerLiteral(1),
                     Expr::IntegerLiteral(2),
@@ -517,8 +517,8 @@ mod tests {
         test_parse_expr(
             "foo.bar 1",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![Expr::IntegerLiteral(1)],
                 block: None,
             }),
@@ -526,8 +526,8 @@ mod tests {
         test_parse_expr(
             "foo.bar 1, 2 ",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
                 block: None,
             }),
@@ -535,8 +535,8 @@ mod tests {
         test_parse_expr(
             "foo.bar 1, 2, 3 ",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![
                     Expr::IntegerLiteral(1),
                     Expr::IntegerLiteral(2),
@@ -562,7 +562,7 @@ mod tests {
             "bar 1",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "bar".to_string(),
+                method: "bar".into(),
                 args: vec![Expr::IntegerLiteral(1)],
                 block: None,
             }),
@@ -571,7 +571,7 @@ mod tests {
             "bar 1, 2 ",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "bar".to_string(),
+                method: "bar".into(),
                 args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
                 block: None,
             }),
@@ -580,7 +580,7 @@ mod tests {
             "bar 1, 2, 3 ",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "bar".to_string(),
+                method: "bar".into(),
                 args: vec![
                     Expr::IntegerLiteral(1),
                     Expr::IntegerLiteral(2),
@@ -606,7 +606,7 @@ mod tests {
             "bar(1)",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "bar".to_string(),
+                method: "bar".into(),
                 args: vec![Expr::IntegerLiteral(1)],
                 block: None,
             }),
@@ -615,7 +615,7 @@ mod tests {
             "bar()",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "bar".to_string(),
+                method: "bar".into(),
                 args: vec![],
                 block: None,
             }),
@@ -624,7 +624,7 @@ mod tests {
             "bar(1, 2)",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "bar".to_string(),
+                method: "bar".into(),
                 args: vec![Expr::IntegerLiteral(1), Expr::IntegerLiteral(2)],
                 block: None,
             }),
@@ -633,7 +633,7 @@ mod tests {
             "bar(1, 2, 3)",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "bar".to_string(),
+                method: "bar".into(),
                 args: vec![
                     Expr::IntegerLiteral(1),
                     Expr::IntegerLiteral(2),
@@ -664,7 +664,7 @@ mod tests {
 
     #[test]
     fn test_single_stmt() {
-        test_parse_expr("foo", Ok(Expr::Var("foo".to_string())));
+        test_parse_expr("foo", Ok(Expr::Var("foo".into())));
     }
 
     #[test]
@@ -675,8 +675,8 @@ mod tests {
             bar
             ",
             Ok(Expr::Sequence(vec![
-                Expr::Var("foo".to_string()),
-                Expr::Var("bar".to_string()),
+                Expr::Var("foo".into()),
+                Expr::Var("bar".into()),
             ])),
         );
         test_parse_expr(
@@ -687,13 +687,13 @@ mod tests {
             Ok(Expr::Sequence(vec![
                 Expr::MethodCall {
                     receiver: None,
-                    method: "bar".to_string(),
+                    method: "bar".into(),
                     args: vec![],
                     block: None,
                 },
                 Expr::MethodCall {
-                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                    method: "baz".to_string(),
+                    receiver: Some(Box::new(Expr::Var("foo".into()))),
+                    method: "baz".into(),
                     args: vec![],
                     block: None,
                 },
@@ -708,7 +708,7 @@ mod tests {
             Err(ParseError::ParseError {
                 context: "expression",
                 expected: "EOF",
-                got: Token::Identifier("foo".to_string()),
+                got: Token::Identifier("foo".into()),
                 pos: 5,
             }),
         );
@@ -723,8 +723,8 @@ mod tests {
               3
             ",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![
                     Expr::IntegerLiteral(1),
                     Expr::IntegerLiteral(2),
@@ -742,8 +742,8 @@ mod tests {
             )
             ",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![
                     Expr::IntegerLiteral(1),
                     Expr::IntegerLiteral(2),
@@ -759,8 +759,8 @@ mod tests {
         test_parse_expr(
             "foo = bar",
             Ok(Expr::Assignment(
-                Box::new(Expr::Var("foo".to_string())),
-                Box::new(Expr::Var("bar".to_string())),
+                Box::new(Expr::Var("foo".into())),
+                Box::new(Expr::Var("bar".into())),
             )),
         );
     }
@@ -770,10 +770,10 @@ mod tests {
         test_parse_expr(
             "foo = bar.baz",
             Ok(Expr::Assignment(
-                Box::new(Expr::Var("foo".to_string())),
+                Box::new(Expr::Var("foo".into())),
                 Box::new(Expr::MethodCall {
-                    receiver: Some(Box::new(Expr::Var("bar".to_string()))),
-                    method: "baz".to_string(),
+                    receiver: Some(Box::new(Expr::Var("bar".into()))),
+                    method: "baz".into(),
                     args: vec![],
                     block: None,
                 }),
@@ -817,12 +817,12 @@ mod tests {
         test_parse_expr(
             "foo.bar do baz end",
             Ok(Expr::MethodCall {
-                receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                method: "bar".to_string(),
+                receiver: Some(Box::new(Expr::Var("foo".into()))),
+                method: "bar".into(),
                 args: vec![],
                 block: Some(Box::new(Block {
                     params: vec![],
-                    body: Expr::Var("baz".to_string()),
+                    body: Expr::Var("baz".into()),
                 })),
             }),
         );
@@ -834,11 +834,11 @@ mod tests {
             "bar do baz end",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "bar".to_string(),
+                method: "bar".into(),
                 args: vec![],
                 block: Some(Box::new(Block {
                     params: vec![],
-                    body: Expr::Var("baz".to_string()),
+                    body: Expr::Var("baz".into()),
                 })),
             }),
         );
@@ -850,12 +850,12 @@ mod tests {
             "while foo.bar do baz end",
             Ok(Expr::While {
                 condition: Box::new(Expr::MethodCall {
-                    receiver: Some(Box::new(Expr::Var("foo".to_string()))),
-                    method: "bar".to_string(),
+                    receiver: Some(Box::new(Expr::Var("foo".into()))),
+                    method: "bar".into(),
                     args: vec![],
                     block: None,
                 }),
-                body: Box::new(Expr::Var("baz".to_string())),
+                body: Box::new(Expr::Var("baz".into())),
             }),
         );
     }
@@ -866,11 +866,11 @@ mod tests {
             "foo do || bar end",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "foo".to_string(),
+                method: "foo".into(),
                 args: vec![],
                 block: Some(Box::new(Block {
                     params: vec![],
-                    body: Expr::Var("bar".to_string()),
+                    body: Expr::Var("bar".into()),
                 })),
             }),
         );
@@ -878,11 +878,11 @@ mod tests {
             "foo do |x| bar end",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "foo".to_string(),
+                method: "foo".into(),
                 args: vec![],
                 block: Some(Box::new(Block {
-                    params: vec!["x".to_string()],
-                    body: Expr::Var("bar".to_string()),
+                    params: vec!["x".into()],
+                    body: Expr::Var("bar".into()),
                 })),
             }),
         );
@@ -890,11 +890,11 @@ mod tests {
             "foo do |x, y, z| bar end",
             Ok(Expr::MethodCall {
                 receiver: None,
-                method: "foo".to_string(),
+                method: "foo".into(),
                 args: vec![],
                 block: Some(Box::new(Block {
-                    params: vec!["x".to_string(), "y".to_string(), "z".to_string()],
-                    body: Expr::Var("bar".to_string()),
+                    params: vec!["x".into(), "y".into(), "z".into()],
+                    body: Expr::Var("bar".into()),
                 })),
             }),
         );
