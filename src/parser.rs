@@ -136,12 +136,18 @@ impl<'a> Parser<'a> {
         let block = match self.peek() {
             Token::Do if block_presence == BlockPresence::WithBlock => {
                 self.next();
+                let params = match self.peek() {
+                    Token::Pipe => {
+                        self.next();
+                        let params = self.identifier_list("block parameters")?;
+                        self.consume(Token::Pipe, "block parameters", "|")?;
+                        params
+                    }
+                    _ => vec![],
+                };
                 let body = self.expr()?;
                 self.consume(Token::End, "block", "end")?;
-                Some(Box::new(Block {
-                    params: vec![],
-                    body,
-                }))
+                Some(Box::new(Block { params, body }))
             }
             _ => None,
         };
@@ -162,6 +168,19 @@ impl<'a> Parser<'a> {
         while *self.peek() == Token::Comma {
             self.next();
             result.push(self.expr()?);
+        }
+        Ok(result)
+    }
+
+    fn identifier_list(&mut self, context: &'static str) -> Result<Vec<Identifier>> {
+        let mut result = vec![];
+        match self.try_(|p| p.identifier(context))? {
+            Some(x) => result.push(x),
+            None => return Ok(vec![]),
+        }
+        while *self.peek() == Token::Comma {
+            self.next();
+            result.push(self.identifier(context)?);
         }
         Ok(result)
     }
@@ -837,6 +856,46 @@ mod tests {
                     block: None,
                 }),
                 body: Box::new(Expr::Var("baz".to_string())),
+            }),
+        );
+    }
+
+    #[test]
+    fn test_parse_block_arguments() {
+        test_parse_expr(
+            "foo do || bar end",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "foo".to_string(),
+                args: vec![],
+                block: Some(Box::new(Block {
+                    params: vec![],
+                    body: Expr::Var("bar".to_string()),
+                })),
+            }),
+        );
+        test_parse_expr(
+            "foo do |x| bar end",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "foo".to_string(),
+                args: vec![],
+                block: Some(Box::new(Block {
+                    params: vec!["x".to_string()],
+                    body: Expr::Var("bar".to_string()),
+                })),
+            }),
+        );
+        test_parse_expr(
+            "foo do |x, y, z| bar end",
+            Ok(Expr::MethodCall {
+                receiver: None,
+                method: "foo".to_string(),
+                args: vec![],
+                block: Some(Box::new(Block {
+                    params: vec!["x".to_string(), "y".to_string(), "z".to_string()],
+                    body: Expr::Var("bar".to_string()),
+                })),
             }),
         );
     }

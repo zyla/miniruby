@@ -31,7 +31,7 @@ Expression syntax is similar to Ruby, but there are no infix operators except `=
 ## What is implemented
 
 - Lexer
-- A tiny bit of parser
+- Most of the parser
 
 ## Syntax
 
@@ -47,7 +47,6 @@ expr = "nil"
      | "@" identifier                    (* instance variable *)
      | "if", expr, "then", expr,
           [ "else", expr ], "end"        (* conditional *)
-     | block
      | "(", expr, ")"
      | expr, { newline, expr }           (* sequence *)
      | "while", expr, "do", expr, "end"  (* while loop *)
